@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organisation {
+  id               String  @id @default(cuid())
+  name             String
+  slug             String  @unique
+  plan             Plan    @default(FREE)
+  stripeCustomerId String? @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  members      Member[]
+  integrations Integration[]
+  syncJobs     SyncJob[]
+  apiKeys      ApiKey[]
+}
+
+model Member {
+  id     String     @id @default(cuid())
+  userId String
+  orgId  String
+  role   MemberRole @default(VIEWER)
+
+  org Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+model Integration {
+  id             String              @id @default(cuid())
+  orgId          String
+  name           String
+  slug           String
+  category       IntegrationCategory
+  status         IntegrationStatus   @default(ACTIVE)
+  source         DiscoverySource
+  authType       AuthType
+  scopes         String[]
+  seatCount      Int?
+  activeUsers    Int?
+  lastSyncedAt   DateTime?
+  tokenExpiresAt DateTime?
+  metadata       Json                @default("{}")
+  embeddingId    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  org Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, slug])
+  @@index([orgId, status])
+}
+
+model SyncJob {
+  id          String          @id @default(cuid())
+  orgId       String
+  status      JobStatus       @default(PENDING)
+  source      DiscoverySource
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  result      Json?
+
+  org Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  keyHash   String    @unique
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  org Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  ERROR
+  DISCONNECTED
+}
+
+enum IntegrationCategory {
+  CRM
+  COMMUNICATION
+  PRODUCTIVITY
+  DEVTOOLS
+  ANALYTICS
+  FINANCE
+  HR
+  SECURITY
+  OTHER
+}
+
+enum DiscoverySource {
+  GOOGLE_WORKSPACE
+  OKTA
+  AZURE_AD
+  STRIPE_BILLING
+  MANUAL
+}
+
+enum AuthType {
+  OAUTH2
+  API_KEY
+  SAML
+  BASIC
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
